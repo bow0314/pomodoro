@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🍅 番茄時鐘</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --work-a: #ff6b6b;
+      --work-b: #ee5a24;
+      --break-a: #a29bfe;
+      --break-b: #6c5ce7;
+      --long-a: #55efc4;
+      --long-b: #00b894;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 30%, #ffecd2 60%, #a18cd1 100%);
+      transition: background 0.8s ease;
+      overflow: hidden;
+    }
+
+    body.break-mode {
+      background: linear-gradient(135deg, #a29bfe 0%, #c3cfe2 30%, #e0c3fc 60%, #8ec5fc 100%);
+    }
+
+    body.long-mode {
+      background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 30%, #d4fc79 60%, #96e6a1 100%);
+    }
+
+    /* floating blobs */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.35;
+      animation: float 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .blob-1 { width: 400px; height: 400px; background: #ff9ff3; top: -100px; left: -100px; animation-delay: 0s; }
+    .blob-2 { width: 300px; height: 300px; background: #feca57; bottom: -80px; right: -80px; animation-delay: 3s; }
+    .blob-3 { width: 250px; height: 250px; background: #48dbfb; bottom: 20%; left: 10%; animation-delay: 5s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-30px) scale(1.05); }
+    }
+
+    /* card */
+    .card {
+      position: relative;
+      background: rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 32px;
+      padding: 44px 52px 48px;
+      width: 420px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.6) inset,
+        0 -1px 0 rgba(255, 255, 255, 0.2) inset;
+      text-align: center;
+    }
+
+    /* emoji title */
+    .emoji { font-size: 2.4rem; margin-bottom: 6px; display: block; }
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: rgba(80, 40, 40, 0.85);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    /* mode tabs */
+    .modes {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50px;
+      padding: 4px;
+      margin-bottom: 36px;
+      border: 1px solid rgba(255,255,255,0.5);
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 8px 0;
+      border: none;
+      background: transparent;
+      border-radius: 50px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(80, 40, 40, 0.6);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .mode-btn.active {
+      background: rgba(255, 255, 255, 0.75);
+      color: rgba(80, 40, 40, 0.9);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* ring timer */
+    .ring-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin: 0 auto 36px;
+    }
+
+    .ring-svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.35);
+      stroke-width: 8;
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: rgba(255, 110, 110, 0.8);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 628;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear, stroke 0.6s ease;
+    }
+
+    .ring-inner {
+      position: absolute;
+      inset: 14px;
+      background: rgba(255,255,255,0.22);
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.45);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .time-display {
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: rgba(70, 30, 30, 0.9);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    .time-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: rgba(70, 30, 30, 0.45);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .btn-icon {
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      border: 1px solid rgba(255,255,255,0.65);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      color: rgba(80, 40, 40, 0.75);
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      backdrop-filter: blur(8px);
+    }
+    .btn-icon:hover {
+      background: rgba(255,255,255,0.65);
+      transform: scale(1.08);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+    .btn-icon:active { transform: scale(0.95); }
+
+    .btn-play {
+      width: 68px;
+      height: 68px;
+      font-size: 1.5rem;
+      background: rgba(255, 255, 255, 0.55);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.13);
+    }
+
+    /* pomodoro dots */
+    .sessions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .sessions span {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: rgba(80,40,40,0.5);
+      margin-right: 4px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      border: 1.5px solid rgba(255,255,255,0.7);
+      transition: all 0.3s ease;
+    }
+
+    .dot.done {
+      background: rgba(255, 100, 100, 0.7);
+      border-color: rgba(255, 100, 100, 0.9);
+      box-shadow: 0 0 6px rgba(255,100,100,0.4);
+    }
+
+    /* finish animation */
+    @keyframes ring-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+
+    .ring-wrap.finished { animation: ring-pulse 0.5s ease 3; }
+
+    /* notification badge */
+    .badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 20px;
+      opacity: 0;
+      transform: scale(0.6);
+      transition: all 0.3s ease;
+      pointer-events: none;
+      box-shadow: 0 2px 8px rgba(238,90,36,0.4);
+    }
+
+    .badge.show { opacity: 1; transform: scale(1); }
+
+    /* responsive */
+    @media (max-width: 480px) {
+      .card { width: 92vw; padding: 36px 28px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <div class="card">
+    <span class="badge" id="badge">休息一下！</span>
+    <span class="emoji" id="modeEmoji">🍅</span>
+    <h1 id="cardTitle">番茄時鐘</h1>
+
+    <div class="modes">
+      <button class="mode-btn active" data-mode="work" data-time="1500">專注</button>
+      <button class="mode-btn" data-mode="break" data-time="300">短休息</button>
+      <button class="mode-btn" data-mode="long" data-time="900">長休息</button>
+    </div>
+
+    <div class="ring-wrap" id="ringWrap">
+      <svg class="ring-svg" viewBox="0 0 220 220">
+        <circle class="ring-bg" cx="110" cy="110" r="100" />
+        <circle class="ring-progress" id="ring" cx="110" cy="110" r="100" />
+      </svg>
+      <div class="ring-inner">
+        <div class="time-display" id="timeDisplay">25:00</div>
+        <div class="time-label" id="timeLabel">專注時間</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-icon" id="resetBtn" title="重置">↺</button>
+      <button class="btn-icon btn-play" id="playBtn" title="開始">▶</button>
+      <button class="btn-icon" id="skipBtn" title="跳過">⏭</button>
+    </div>
+
+    <div class="sessions">
+      <span>今日</span>
+      <div class="dot" id="d1"></div>
+      <div class="dot" id="d2"></div>
+      <div class="dot" id="d3"></div>
+      <div class="dot" id="d4"></div>
+    </div>
+  </div>
+
+  <script>
+    const MODES = {
+      work:  { time: 1500, label: '專注時間', emoji: '🍅', ring: 'rgba(255,110,110,0.8)',  body: '',           badge: null },
+      break: { time: 300,  label: '短暫休息', emoji: '☕',  ring: 'rgba(140,130,255,0.8)', body: 'break-mode', badge: '休息一下！' },
+      long:  { time: 900,  label: '長時休息', emoji: '🌿',  ring: 'rgba(60,200,150,0.8)',  body: 'long-mode',  badge: '好好休息！' },
+    };
+
+    let currentMode = 'work';
+    let totalTime = MODES.work.time;
+    let remaining = totalTime;
+    let running = false;
+    let timer = null;
+    let sessions = 0;
+    const CIRCUMFERENCE = 2 * Math.PI * 100; // ~628
+
+    const timeDisplay = document.getElementById('timeDisplay');
+    const timeLabel   = document.getElementById('timeLabel');
+    const modeEmoji   = document.getElementById('modeEmoji');
+    const ring        = document.getElementById('ring');
+    const playBtn     = document.getElementById('playBtn');
+    const resetBtn    = document.getElementById('resetBtn');
+    const skipBtn     = document.getElementById('skipBtn');
+    const ringWrap    = document.getElementById('ringWrap');
+    const badge       = document.getElementById('badge');
+    const dots        = [d1, d2, d3, d4];
+
+    function fmt(s) {
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = (s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    function updateRing() {
+      const pct = remaining / totalTime;
+      ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+    }
+
+    function applyMode(mode) {
+      const cfg = MODES[mode];
+      currentMode = mode;
+      totalTime = cfg.time;
+      remaining = totalTime;
+
+      timeDisplay.textContent = fmt(remaining);
+      timeLabel.textContent = cfg.label;
+      modeEmoji.textContent = cfg.emoji;
+      ring.style.stroke = cfg.ring;
+      updateRing();
+
+      document.body.className = cfg.body;
+
+      badge.textContent = cfg.badge || '';
+      if (cfg.badge) {
+        badge.classList.add('show');
+        setTimeout(() => badge.classList.remove('show'), 2500);
+      }
+
+      document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+      });
+
+      stop();
+    }
+
+    function tick() {
+      if (remaining <= 0) {
+        finish();
+        return;
+      }
+      remaining--;
+      timeDisplay.textContent = fmt(remaining);
+      updateRing();
+    }
+
+    function play() {
+      running = true;
+      playBtn.textContent = '⏸';
+      timer = setInterval(tick, 1000);
+    }
+
+    function pause() {
+      running = false;
+      playBtn.textContent = '▶';
+      clearInterval(timer);
+    }
+
+    function stop() {
+      pause();
+      remaining = totalTime;
+      timeDisplay.textContent = fmt(remaining);
+      updateRing();
+    }
+
+    function finish() {
+      pause();
+      remaining = 0;
+      updateRing();
+
+      // count session
+      if (currentMode === 'work') {
+        sessions = Math.min(sessions + 1, 4);
+        dots.forEach((d, i) => d.classList.toggle('done', i < sessions));
+        if (sessions === 4) sessions = 0;
+      }
+
+      // pulse animation
+      ringWrap.classList.add('finished');
+      setTimeout(() => ringWrap.classList.remove('finished'), 1600);
+
+      // auto switch
+      setTimeout(() => {
+        if (currentMode === 'work') {
+          applyMode(sessions % 4 === 0 && sessions > 0 ? 'long' : 'break');
+        } else {
+          applyMode('work');
+        }
+      }, 800);
+    }
+
+    playBtn.addEventListener('click', () => running ? pause() : play());
+    resetBtn.addEventListener('click', () => stop());
+    skipBtn.addEventListener('click', () => finish());
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => applyMode(btn.dataset.mode));
+    });
+
+    // init
+    ring.style.strokeDasharray = CIRCUMFERENCE;
+    ring.style.strokeDashoffset = 0;
+    updateRing();
+  </script>
+</body>
+</html>
